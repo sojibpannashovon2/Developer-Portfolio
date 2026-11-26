@@ -28,6 +28,8 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
+env-production.txt
+env.production
 
 # keys and local databases
 *.key
@@ -66,3 +68,6 @@ mobile-hero.png
 # Playwright e2e output
 playwright-report/
 test-results/
+
+.vercel
+.env*
