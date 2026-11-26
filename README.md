@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/nixrajput/portfolio-nextjs/master/assets/logo.svg" width="76" alt="Nikhil Rajput">
 
-# Nikhil Rajput · Portfolio
+# Md Arifur Rahman· Portfolio
 
 <em>A portfolio that is edited, not redeployed.</em>
 
