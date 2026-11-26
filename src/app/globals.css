@@ -1,0 +1,509 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Opacity modifiers (/10, /60) only work on colors registered in @theme, and @theme cannot
+ * hold theme-switched values. Hence the indirection: @theme aliases --color-* to vars whose
+ * raw values flip in :root/.dark. Inlining a literal there kills every modifier. */
+
+@theme {
+  /* Default brand ramp, mirroring src/lib/brand.ts (Sapphire: deep navy indigo ->
+     indigo -> periwinkle). Other palettes override these at runtime via [data-palette]. */
+  --color-brand-deep: #1e1b4b;
+  --color-brand-mid: #4338ca;
+  --color-brand-bright: #818cf8;
+
+  /* Semantic design-system tokens — values come from :root / .dark vars */
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border-color);
+  --color-muted: var(--muted);
+  /* alias: several components use `text-muted-foreground`; map it to the same value */
+  --color-muted-foreground: var(--muted);
+  --color-ring: var(--ring);
+
+  /* Gradient — per-theme overrides set in :root / .dark below */
+  --gradient-brand: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
+
+  /* Typography */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light theme — raw values for @theme var() references.
+   Ink/paper are hue-biased toward the brand ramp (never pure black/white)
+   so text harmonizes with the ambient gradient. */
+:root {
+  --max-width: 1200px;
+  --bg: #f8f7fb;
+  --fg: #18162b;
+  /* Translucent so cards read as glass over the ambient canvas, not white slabs */
+  --surface: rgba(255, 255, 255, 0.6);
+  --surface-2: rgba(24, 22, 43, 0.03);
+  --border-color: rgba(24, 22, 43, 0.15);
+  --muted: rgba(24, 22, 43, 0.6);
+  --ring: #4338ca;
+  /* Raw brand vars for arbitrary-value utilities like border-(--brand-deep).
+     The @theme --color-brand-* tokens only generate the --color-* namespace,
+     so components referencing the bare names need these aliases. */
+  --brand-deep: #1e1b4b;
+  --brand-mid: #4338ca;
+  --brand-bright: #818cf8;
+  /* Same ramp as channel lists, so arbitrary-value glows can pick their own alpha:
+     shadow-[0_0_8px_rgb(var(--brand-deep-rgb)/0.6)]. Without these, decorative glows
+     end up as literal rgba() in className strings - which is exactly how five of them
+     stayed Glacier teal through a palette change, invisible to a hex search. */
+  --brand-deep-rgb: 30 27 75;
+  --brand-mid-rgb: 67 56 202;
+  --brand-bright-rgb: 129 140 248;
+  /* Redesign tokens: hero name stroke + full-screen menu ground */
+  --name-stroke: rgba(24, 22, 43, 0.88);
+  --overlay-bg: rgba(248, 247, 251, 0.94);
+  /* Experience period label: the bright ramp end is too light on paper - use a deeper one */
+  --period: #4338ca;
+  /* Accent text on translucent brand chips (project language etc.): deep on paper */
+  --accent-on-chip: #1e1b4b;
+  /* Opaque brand-tinted chip surface - a subtle brand wash over paper, so the
+     chip reads as "brand" (not dead black) yet blocks the moving gradient. */
+  --chip-surface: #eef0fb;
+  /* Legacy aliases kept for existing components */
+  --background: var(--bg);
+  --foreground: var(--fg);
+  /* Light gradient: deeper/more saturated so it reads rich on white */
+  --gradient-brand: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
+  /* Brand gradient for TEXT (gradient-text/stats). On paper the rich ramp reads
+     high-contrast, so it matches --gradient-brand; in dark it brightens (below)
+     so gradient text never fades into the deep ground. */
+  --gradient-ink: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
+  /* Nav active pill opacity for light (higher so the pill is visible) */
+  --nav-pill-opacity: 0.28;
+}
+
+/* Dark theme */
+.dark {
+  --bg: #0a0813;
+  --fg: #ece9f7;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --border-color: rgba(236, 233, 247, 0.16);
+  --muted: rgba(236, 233, 247, 0.62);
+  --ring: #818cf8;
+  --name-stroke: rgba(236, 233, 247, 0.9);
+  --overlay-bg: rgba(10, 8, 19, 0.92);
+  /* Dark: the bright ramp end reads fine on the deep ground */
+  --period: #818cf8;
+  /* Dark: a brightened tint so brand chips are legible on the deep ground */
+  --accent-on-chip: #a5b4fc;
+  /* Opaque deep chip surface: immersive brand tone, not flat black. */
+  --chip-surface: #1b1a3d;
+  /* Legacy aliases */
+  --background: var(--bg);
+  --foreground: var(--fg);
+  /* Dark gradient: the deep-to-mid ramp */
+  --gradient-brand: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
+  /* Brand gradient for TEXT in dark: a brighter ramp so both ends clear the deep
+     ground - the ramp's deep end is nearly invisible on it. Used by gradient-text
+     everywhere (logo wordmark, tagline, stats, headings). */
+  --gradient-ink: linear-gradient(135deg, #818cf8 0%, #c7d2fe 100%);
+  /* Nav active pill opacity for dark */
+  --nav-pill-opacity: 0.2;
+}
+/* ── Selectable palettes ──────────────────────────────────────────────────────
+   Iris is the default and lives in :root/.dark above; these four are applied at
+   runtime by data-palette on <html> (see hooks/usePalette). The ramp is
+   theme-independent, so it is set once per palette; grounds, chrome and gradients
+   differ per theme.
+
+   Every selector is two simple selectors, never a bare [data-palette]: at (0,2,0) they beat
+   :root and .dark outright, so the result does not depend on source order. A bare
+   [data-palette] ties with :root at (0,1,0) and would silently lose if this block moved. */
+
+:root[data-palette="oceanic"] {
+  --brand-deep: #1e3a8a;
+  --brand-mid: #2563eb;
+  --brand-bright: #60a5fa;
+  --brand-deep-rgb: 30 58 138;
+  --brand-mid-rgb: 37 99 235;
+  --brand-bright-rgb: 96 165 250;
+  --color-brand-deep: #1e3a8a;
+  --color-brand-mid: #2563eb;
+  --color-brand-bright: #60a5fa;
+  --gradient-brand: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+}
+[data-palette="oceanic"]:not(.dark) {
+  --bg: #f5f7fd;
+  --fg: #131722;
+  --surface-2: rgba(19, 23, 34, 0.03);
+  --border-color: rgba(19, 23, 34, 0.15);
+  --muted: rgba(19, 23, 34, 0.6);
+  --ring: #1d4ed8;
+  --name-stroke: rgba(19, 23, 34, 0.88);
+  --overlay-bg: rgba(245, 247, 253, 0.94);
+  --period: #1d4ed8;
+  --accent-on-chip: #1e3a8a;
+  --chip-surface: #e8edfb;
+  --gradient-ink: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+}
+[data-palette="oceanic"].dark {
+  --bg: #070b14;
+  --fg: #e5ecfa;
+  --border-color: rgba(229, 236, 250, 0.16);
+  --muted: rgba(229, 236, 250, 0.62);
+  --ring: #2563eb;
+  --name-stroke: rgba(228, 239, 252, 0.9);
+  --overlay-bg: rgba(7, 11, 20, 0.92);
+  --period: #60a5fa;
+  --accent-on-chip: #93c5fd;
+  --chip-surface: #0c1526;
+  --gradient-ink: linear-gradient(135deg, #60a5fa 0%, #bfdbfe 100%);
+}
+
+:root[data-palette="graphite"] {
+  --brand-deep: #1f2937;
+  --brand-mid: #475569;
+  --brand-bright: #94a3b8;
+  --brand-deep-rgb: 31 41 55;
+  --brand-mid-rgb: 71 85 105;
+  --brand-bright-rgb: 148 163 184;
+  --color-brand-deep: #1f2937;
+  --color-brand-mid: #475569;
+  --color-brand-bright: #94a3b8;
+  --gradient-brand: linear-gradient(135deg, #1f2937 0%, #475569 100%);
+}
+[data-palette="graphite"]:not(.dark) {
+  --bg: #f7f8f9;
+  --fg: #16191d;
+  --surface-2: rgba(22, 25, 29, 0.03);
+  --border-color: rgba(22, 25, 29, 0.15);
+  --muted: rgba(22, 25, 29, 0.6);
+  --ring: #334155;
+  --name-stroke: rgba(22, 25, 29, 0.88);
+  --overlay-bg: rgba(247, 248, 249, 0.94);
+  --period: #334155;
+  --accent-on-chip: #1f2937;
+  --chip-surface: #eaecef;
+  --gradient-ink: linear-gradient(135deg, #1f2937 0%, #475569 100%);
+}
+[data-palette="graphite"].dark {
+  --bg: #0a0c0e;
+  --fg: #e7eaee;
+  --border-color: rgba(231, 234, 238, 0.16);
+  --muted: rgba(231, 234, 238, 0.62);
+  --ring: #64748b;
+  --name-stroke: rgba(233, 237, 242, 0.9);
+  --overlay-bg: rgba(10, 12, 14, 0.92);
+  --period: #94a3b8;
+  --accent-on-chip: #cbd5e1;
+  --chip-surface: #14181d;
+  --gradient-ink: linear-gradient(135deg, #94a3b8 0%, #d5dbe3 100%);
+}
+
+:root[data-palette="forest"] {
+  --brand-deep: #064e3b;
+  --brand-mid: #059669;
+  --brand-bright: #6ee7b7;
+  --brand-deep-rgb: 6 78 59;
+  --brand-mid-rgb: 5 150 105;
+  --brand-bright-rgb: 110 231 183;
+  --color-brand-deep: #064e3b;
+  --color-brand-mid: #059669;
+  --color-brand-bright: #6ee7b7;
+  --gradient-brand: linear-gradient(135deg, #064e3b 0%, #059669 100%);
+}
+[data-palette="forest"]:not(.dark) {
+  --bg: #f4faf7;
+  --fg: #12201a;
+  --surface-2: rgba(18, 32, 26, 0.03);
+  --border-color: rgba(18, 32, 26, 0.15);
+  --muted: rgba(18, 32, 26, 0.6);
+  --ring: #047857;
+  --name-stroke: rgba(18, 32, 26, 0.88);
+  --overlay-bg: rgba(244, 250, 247, 0.94);
+  --period: #047857;
+  --accent-on-chip: #064e3b;
+  --chip-surface: #e5f4ec;
+  --gradient-ink: linear-gradient(135deg, #064e3b 0%, #059669 100%);
+}
+[data-palette="forest"].dark {
+  --bg: #04100c;
+  --fg: #e3f5ec;
+  --border-color: rgba(227, 245, 236, 0.16);
+  --muted: rgba(227, 245, 236, 0.62);
+  --ring: #059669;
+  --name-stroke: rgba(228, 246, 238, 0.9);
+  --overlay-bg: rgba(4, 16, 12, 0.92);
+  --period: #6ee7b7;
+  --accent-on-chip: #86efac;
+  --chip-surface: #072117;
+  --gradient-ink: linear-gradient(135deg, #6ee7b7 0%, #b7f4d9 100%);
+}
+
+:root[data-palette="crimson"] {
+  --brand-deep: #7f1d1d;
+  --brand-mid: #dc2626;
+  --brand-bright: #f87171;
+  --brand-deep-rgb: 127 29 29;
+  --brand-mid-rgb: 220 38 38;
+  --brand-bright-rgb: 248 113 113;
+  --color-brand-deep: #7f1d1d;
+  --color-brand-mid: #dc2626;
+  --color-brand-bright: #f87171;
+  --gradient-brand: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+}
+[data-palette="crimson"]:not(.dark) {
+  --bg: #fdf6f6;
+  --fg: #1e1414;
+  --surface-2: rgba(30, 20, 20, 0.03);
+  --border-color: rgba(30, 20, 20, 0.15);
+  --muted: rgba(30, 20, 20, 0.6);
+  --ring: #b91c1c;
+  --name-stroke: rgba(30, 20, 20, 0.88);
+  --overlay-bg: rgba(253, 246, 246, 0.94);
+  --period: #b91c1c;
+  --accent-on-chip: #7f1d1d;
+  --chip-surface: #fbe9e9;
+  --gradient-ink: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+}
+[data-palette="crimson"].dark {
+  --bg: #0e0505;
+  --fg: #fbe9e9;
+  --border-color: rgba(251, 233, 233, 0.16);
+  --muted: rgba(251, 233, 233, 0.62);
+  --ring: #dc2626;
+  --name-stroke: rgba(253, 236, 236, 0.9);
+  --overlay-bg: rgba(14, 5, 5, 0.92);
+  --period: #f87171;
+  --accent-on-chip: #fca5a5;
+  --chip-surface: #230a0a;
+  --gradient-ink: linear-gradient(135deg, #f87171 0%, #fecaca 100%);
+}
+
+/* Do NOT add a universal `* { margin: 0 }` reset here: unlayered CSS beats layered utilities
+ * regardless of specificity, so it silently breaks spacing app-wide. Preflight already does
+ * this correctly inside its layer. */
+html {
+  scroll-behavior: smooth;
+}
+/* Without this the initial system-theme flip cross-fades through each element's own
+ * transition-*, reading as a flicker. `!important` beats utility transitions. */
+html:not(.theme-ready) *,
+html:not(.theme-ready) *::before,
+html:not(.theme-ready) *::after {
+  transition: none !important;
+}
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* No unlayered resets for `a`, `button` or `*`, and no `color` on the anchor below: unlayered
+ * CSS beats layered utilities regardless of specificity, which silently broke button and link
+ * colors app-wide. Preflight already resets both inside its layer, so utilities win. */
+@layer base {
+  a {
+    text-decoration: none;
+  }
+  /* Modern UA/Preflight resets set buttons to `cursor: default`; restore the
+     pointer affordance for all enabled buttons and button-role elements. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Brand gradient clipped to text. Uses --gradient-ink (theme-aware: rich on
+   paper, bright ice in dark) so gradient text is legible in both themes. */
+@utility gradient-text {
+  background-image: var(--gradient-ink);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Shared horizontal rhythm: the hero's fluid gutter is the reference, so the
+   nav, every Section, and the Footer use the same edges — no max-width cap,
+   6vw gutters on >= sm, a comfortable 1.5rem on mobile. Change it here once. */
+@utility site-container {
+  padding-inline: 1.5rem;
+}
+@media (width >= 40rem) {
+  .site-container {
+    padding-inline: 6vw;
+  }
+}
+
+/* Hero display: transparent fill with a theme-aware stroke */
+@utility text-stroke-name {
+  -webkit-text-stroke: 2px var(--name-stroke);
+  color: transparent;
+  letter-spacing: 0.04em;
+}
+
+/* Text-protection scrim: quiets the ambient gradient under the hero headline
+   block only - corners and edges stay vivid. Both themes via var(--bg). */
+.hero-scrim {
+  background: radial-gradient(
+    95% 64% ellipse at 26% 52%,
+    color-mix(in srgb, var(--bg) 78%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 42%, transparent) 42%,
+    transparent 70%
+  );
+}
+
+/* Hero roles marquee: duplicated track, translate by half for a seamless loop */
+@keyframes marquee-left {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.hero-marquee-track {
+  animation: marquee-left 26s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-marquee-track {
+    animation: none;
+  }
+}
+
+/* Custom cursor active: hide the native cursor everywhere while it renders */
+html.cursor-hidden,
+html.cursor-hidden * {
+  cursor: none !important;
+}
+
+/* ── Dialog motion (Radix data-state driven) ─────────────────────────────
+   Scale + fade on the brand ease curve. We animate the standalone `scale`
+   property (NOT `transform`) so it composes with Tailwind's
+   -translate-x/y-1/2 centering instead of overriding it — animating
+   `transform` here made the modal jump from a mis-centered spot to center
+   when the animation ended and the utility transform took back over.
+   animation-fill-mode: both holds the first/last frame so there is no
+   pre-animation flash either. */
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes dialog-out {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 0.94;
+  }
+}
+.dialog-pop[data-state="open"] {
+  animation: dialog-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.dialog-pop[data-state="closed"] {
+  animation: dialog-out 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.dialog-overlay-fade[data-state="open"] {
+  animation: overlay-in 0.28s ease;
+}
+.dialog-overlay-fade[data-state="closed"] {
+  animation: overlay-out 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog-pop[data-state],
+  .dialog-overlay-fade[data-state] {
+    animation: none;
+  }
+}
+
+@keyframes meteor {
+  0% {
+    transform: rotate(215deg) translateX(0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(215deg) translateX(-500px);
+    opacity: 0;
+  }
+}
+
+.meteor {
+  animation-name: meteor;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.meteor::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-brand-mid), transparent);
+}
+
+/* Vertical marquee for the testimonials grid. The track renders its items
+   twice; translating up by 50% creates a seamless loop. Paused on hover and
+   disabled entirely under reduced-motion. */
+@keyframes marquee-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    /* -100% = one set's height (the duplicate is out of flow, so the track's
+       own height equals a single set + its trailing gap). */
+    transform: translateY(-100%);
+  }
+}
+.marquee-track {
+  animation: marquee-up linear infinite;
+}
+.marquee-group:hover .marquee-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+}

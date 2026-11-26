@@ -1,0 +1,70 @@
+name: Lighthouse
+
+on:
+  pull_request:
+    branches: [master, v2]
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        env:
+          POSTGRES_USER: lh
+          POSTGRES_PASSWORD: lh
+          POSTGRES_DB: portfolio_lh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.5
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Migrate + seed before building: the ISR homepage is prerendered at
+      # build time and queries the database.
+      - name: Run DB migrations
+        run: bunx drizzle-kit migrate
+        env:
+          DATABASE_URL: postgres://lh:lh@localhost:5432/portfolio_lh
+
+      - name: Seed database
+        run: bun run db:seed
+        env:
+          DATABASE_URL: postgres://lh:lh@localhost:5432/portfolio_lh
+          NEXT_PUBLIC_SITE_URL: https://nixrajput.com
+
+      - name: Build
+        run: bun run build
+        env:
+          DATABASE_URL: postgres://lh:lh@localhost:5432/portfolio_lh
+          AUTH_SECRET: ci-dummy-secret
+          NEXT_PUBLIC_SITE_URL: https://nixrajput.com
+
+      - name: Run Lighthouse CI
+        run: bunx @lhci/cli@0.16.1 autorun
+        env:
+          DATABASE_URL: postgres://lh:lh@localhost:5432/portfolio_lh
+          AUTH_SECRET: ci-dummy-secret
+          NEXT_PUBLIC_SITE_URL: https://nixrajput.com
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
